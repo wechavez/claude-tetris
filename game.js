@@ -27,6 +27,8 @@ const PIECES = [
 ];
 
 const LINE_SCORES = [0, 100, 300, 500, 800];
+const T_SPIN_SCORES = [400, 800, 1200, 1600]; // index = líneas (0 = T-spin en seco)
+const PERFECT_CLEAR_BONUS = 1000;
 
 const canvas = document.getElementById('board');
 const ctx = canvas.getContext('2d');
@@ -40,8 +42,11 @@ const overlayTitle = document.getElementById('overlay-title');
 const overlayScore = document.getElementById('overlay-score');
 const restartBtn = document.getElementById('restart-btn');
 const themeSwitch = document.getElementById('theme-switch');
+const muteBtn = document.getElementById('mute-btn');
+const bannerEl = document.getElementById('banner');
 
 let board, current, next, score, lines, level, paused, gameOver, lastTime, dropAccum, dropInterval, animId;
+let combo, b2b, lastMoveRotation;
 
 function createBoard() {
   return Array.from({ length: ROWS }, () => new Array(COLS).fill(0));
@@ -82,9 +87,23 @@ function tryRotate() {
     if (!collide(rotated, current.x + kick, current.y)) {
       current.shape = rotated;
       current.x += kick;
+      lastMoveRotation = true;
       return;
     }
   }
+}
+
+function isTSpin() {
+  if (current.type !== 3 || !lastMoveRotation) return false;
+  // La T vive en una matriz 3x3; se cuenta cuántas de las 4 esquinas están ocupadas
+  // (fuera del tablero o por un bloque asentado). 3+ ocupadas ⇒ T-spin.
+  const corners = [[0, 0], [0, 2], [2, 0], [2, 2]];
+  let filled = 0;
+  for (const [dr, dc] of corners) {
+    const x = current.x + dc, y = current.y + dr;
+    if (x < 0 || x >= COLS || y >= ROWS || (y >= 0 && board[y][x])) filled++;
+  }
+  return filled >= 3;
 }
 
 function merge() {
@@ -104,13 +123,31 @@ function clearLines() {
       r++;
     }
   }
-  if (cleared) {
+  return cleared;
+}
+
+function applyScore(cleared, tSpin) {
+  const perfect = cleared > 0 && board.every(row => row.every(v => v === 0));
+  const difficult = cleared === 4 || (tSpin && cleared >= 1);
+
+  if (cleared > 0) {
+    combo++;
+    let gain = (tSpin ? T_SPIN_SCORES[cleared] : LINE_SCORES[cleared]) * level;
+    if (difficult && b2b) gain = Math.floor(gain * 1.5);
+    if (combo >= 2) gain *= combo;
+    score += gain;
+    if (perfect) score += PERFECT_CLEAR_BONUS * level;
     lines += cleared;
-    score += (LINE_SCORES[cleared] || 0) * level;
     level = Math.floor(lines / 10) + 1;
     dropInterval = Math.max(100, 1000 - (level - 1) * 90);
-    updateHUD();
+    b2b = difficult;
+  } else {
+    combo = 0;
+    if (tSpin) score += T_SPIN_SCORES[0] * level;
   }
+
+  announce({ cleared, tSpin, difficult, perfect, combo });
+  updateHUD();
 }
 
 function ghostY() {
@@ -137,14 +174,17 @@ function softDrop() {
 }
 
 function lockPiece() {
+  const tSpin = isTSpin();
   merge();
-  clearLines();
+  const cleared = clearLines();
+  applyScore(cleared, tSpin);
   spawn();
 }
 
 function spawn() {
   current = next;
   next = randomPiece();
+  lastMoveRotation = false;
   if (collide(current.shape, current.x, current.y)) {
     endGame();
   }
@@ -219,6 +259,31 @@ function drawNext() {
       drawBlock(nextCtx, offX + c, offY + r, shape[r][c], NB);
 }
 
+function announce({ cleared, tSpin, difficult, perfect, combo }) {
+  const bannerLines = [];
+  if (perfect) bannerLines.push('PERFECT CLEAR');
+  else if (tSpin && cleared) bannerLines.push('T-SPIN ' + ['', 'SINGLE', 'DOUBLE', 'TRIPLE'][cleared]);
+  else if (tSpin) bannerLines.push('T-SPIN');
+  else if (cleared === 4) bannerLines.push('TETRIS');
+  if (difficult && b2b && !perfect) bannerLines.push('BACK-TO-BACK');
+  if (combo >= 2) bannerLines.push('COMBO x' + combo);
+  if (bannerLines.length) showBanner(bannerLines);
+
+  if (perfect) playSound('perfect');
+  else if (tSpin && cleared) playSound('tspin');
+  else if (cleared === 4) playSound('tetris');
+  else if (combo >= 2) playSound('combo', combo);
+  else if (cleared) playSound('clear');
+}
+
+function showBanner(lines) {
+  if (!bannerEl) return;
+  bannerEl.innerHTML = lines.map(l => `<span>${l}</span>`).join('');
+  bannerEl.classList.remove('show');
+  void bannerEl.offsetWidth; // fuerza reflow para reiniciar la animación
+  bannerEl.classList.add('show');
+}
+
 function endGame() {
   gameOver = true;
   cancelAnimationFrame(animId);
@@ -267,6 +332,9 @@ function init() {
   gameOver = false;
   dropInterval = 1000;
   dropAccum = 0;
+  combo = 0;
+  b2b = false;
+  lastMoveRotation = false;
   lastTime = performance.now();
   next = randomPiece();
   spawn();
@@ -277,14 +345,16 @@ function init() {
 }
 
 document.addEventListener('keydown', e => {
+  initAudio();
   if (e.code === 'KeyP') { togglePause(); return; }
+  if (e.code === 'KeyM') { toggleMute(); return; }
   if (paused || gameOver) return;
   switch (e.code) {
     case 'ArrowLeft':
-      if (!collide(current.shape, current.x - 1, current.y)) current.x--;
+      if (!collide(current.shape, current.x - 1, current.y)) { current.x--; lastMoveRotation = false; }
       break;
     case 'ArrowRight':
-      if (!collide(current.shape, current.x + 1, current.y)) current.x++;
+      if (!collide(current.shape, current.x + 1, current.y)) { current.x++; lastMoveRotation = false; }
       break;
     case 'ArrowDown':
       softDrop();
@@ -318,5 +388,59 @@ themeSwitch.addEventListener('change', () => {
 });
 
 applyTheme(localStorage.getItem(THEME_KEY) === 'light' ? 'light' : 'dark');
+
+// ---- Sonido (Web Audio, sintetizado) ----
+const MUTE_KEY = 'tetris-muted';
+let muted = localStorage.getItem(MUTE_KEY) === 'true';
+let audioCtx = null;
+
+function initAudio() {
+  if (audioCtx) return;
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContextClass) return;
+  audioCtx = new AudioContextClass();
+}
+
+function tone(freq, duration, delay, type, gainAmount) {
+  if (!audioCtx) return;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = type || 'square';
+  osc.frequency.value = freq;
+  const start = audioCtx.currentTime + (delay || 0);
+  gain.gain.setValueAtTime(0, start);
+  gain.gain.linearRampToValueAtTime(gainAmount ?? 0.15, start + 0.01);
+  gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+  osc.connect(gain).connect(audioCtx.destination);
+  osc.start(start);
+  osc.stop(start + duration);
+}
+
+const SOUND_PRESETS = {
+  clear: () => tone(440, 0.15, 0, 'square'),
+  tetris: () => [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.18, i * 0.05, 'square')),
+  tspin: () => [392, 587, 880].forEach((f, i) => tone(f, 0.16, i * 0.06, 'sawtooth')),
+  perfect: () => [523, 659, 784, 1047, 1319].forEach((f, i) => tone(f, 0.22, i * 0.07, 'triangle')),
+  combo: n => tone(300 + Math.min(n, 10) * 60, 0.14, 0, 'square'),
+};
+
+function playSound(type, n) {
+  if (muted || !audioCtx) return;
+  const preset = SOUND_PRESETS[type];
+  if (preset) preset(n);
+}
+
+function toggleMute() {
+  muted = !muted;
+  localStorage.setItem(MUTE_KEY, muted);
+  applyMuteIcon();
+}
+
+function applyMuteIcon() {
+  if (muteBtn) muteBtn.textContent = muted ? '🔇' : '🔊';
+}
+
+if (muteBtn) muteBtn.addEventListener('click', toggleMute);
+applyMuteIcon();
 
 init();

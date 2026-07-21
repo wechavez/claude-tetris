@@ -122,12 +122,56 @@ body.light {
   align-items: flex-start;
 }
 
+.board-wrap {
+  position: relative;
+}
+
 #board {
   display: block;
   border: 1px solid var(--board-border);
   background: var(--board-bg);
   border-radius: 4px;
   box-shadow: 0 0 40px rgba(0, 0, 0, 0.6);
+}
+
+/* ---- Banner de combos / bonus ---- */
+.banner {
+  position: absolute;
+  top: 40%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  pointer-events: none;
+  text-align: center;
+  opacity: 0;
+}
+
+.banner span {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  color: var(--title-color);
+  text-shadow: 0 0 16px rgba(122, 162, 247, 0.8), 0 2px 4px rgba(0, 0, 0, 0.6);
+  white-space: nowrap;
+}
+
+.banner span:first-child {
+  font-size: 26px;
+}
+
+.banner.show {
+  animation: banner-pop 1s ease-out;
+}
+
+@keyframes banner-pop {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.6); }
+  15% { opacity: 1; transform: translate(-50%, -50%) scale(1.15); }
+  30% { transform: translate(-50%, -50%) scale(1); }
+  75% { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1); }
 }
 
 /* ---- Panel lateral ---- */
@@ -165,6 +209,21 @@ body.light {
   border: 1px solid var(--board-border);
   background: var(--board-bg);
   border-radius: 4px;
+}
+
+.mute-btn {
+  background: var(--kbd-bg);
+  border: 1px solid var(--kbd-border);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 16px;
+  cursor: pointer;
+  align-self: flex-start;
+  transition: background 0.15s;
+}
+
+.mute-btn:hover {
+  background: var(--switch-bg);
 }
 
 /* ---- Controles ---- */

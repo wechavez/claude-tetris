@@ -16,7 +16,10 @@
     </div>
     <h1 class="game-title">TETRIS</h1>
     <div class="game-container">
-      <canvas id="board" width="300" height="600"></canvas>
+      <div class="board-wrap">
+        <canvas id="board" width="300" height="600"></canvas>
+        <div id="banner" class="banner"></div>
+      </div>
 
       <aside class="panel">
         <div class="panel-section">
@@ -45,7 +48,12 @@
             <li><kbd>↓</kbd> bajar</li>
             <li><kbd>Space</kbd> caída</li>
             <li><kbd>P</kbd> pausa</li>
+            <li><kbd>M</kbd> silencio</li>
           </ul>
+        </div>
+
+        <div class="panel-section">
+          <button id="mute-btn" class="mute-btn" title="Silenciar">🔊</button>
         </div>
       </aside>
     </div>
