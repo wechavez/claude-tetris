@@ -62,10 +62,23 @@ body.light {
   position: relative;
 }
 
-.theme-toggle {
+.top-controls {
   position: absolute;
   top: 0;
   right: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.skin-select {
+  background: var(--kbd-bg);
+  color: var(--text-color);
+  border: 1px solid var(--kbd-border);
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 12px;
+  cursor: pointer;
 }
 
 .switch {
@@ -209,6 +222,14 @@ body.light {
   border: 1px solid var(--board-border);
   background: var(--board-bg);
   border-radius: 4px;
+}
+
+/* ---- Skin: Neon ---- */
+body.skin-neon #board,
+body.skin-neon #next-canvas {
+  background: #000000;
+  border-color: #00f6ff;
+  box-shadow: 0 0 30px rgba(0, 246, 255, 0.35), 0 0 60px rgba(0, 246, 255, 0.15);
 }
 
 .mute-btn {
