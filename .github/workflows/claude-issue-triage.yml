@@ -20,6 +20,7 @@ jobs:
       - name: Format issue with Claude
         uses: anthropics/claude-code-action@v1
         with:
+          # Always authenticate via CLAUDE_CODE_OAUTH_TOKEN, not an API key secret.
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           claude_args: "--allowedTools Bash(gh issue *)"
           prompt: |
